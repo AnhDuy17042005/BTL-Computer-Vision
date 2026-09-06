@@ -1,0 +1,17 @@
+[workspace]
+authors = ["AnhDuy17042005 <duy.nguyen.17042005@gmail.com>"]
+channels = ["conda-forge"]
+name = "BTL"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+python = "3.12.*"
+numpy = ">=2.5.2,<3"
+matplotlib = ">=3.11.1,<4"
+opencv = ">=5.0.0,<6"
+pillow = ">=12.3.0,<13"
+pyside6 = ">=6.11.2,<7"
+ipykernel = ">=7.3.0,<8"
