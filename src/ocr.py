@@ -19,7 +19,7 @@ HOG_BINS = 9
 ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 PLATE_PATTERN = re.compile(r"[0-9]{2}[A-Z][A-Z0-9]?[0-9]{4,5}")
 TO_DIGIT = str.maketrans({"O": "0", "B": "8", "I": "1", "S": "5"})
-TO_LETTER = str.maketrans({"0": "O", "8": "B", "1": "I", "5": "S"})
+TO_LETTER = str.maketrans({"8": "B", "5": "S"})
 
 @dataclass
 class RecognitionResult:
@@ -50,8 +50,9 @@ def postprocess(raw_text):
         text = top[:2].translate(TO_DIGIT) + top[2:3].translate(TO_LETTER) + top[3:]
         text += bottom.translate(TO_DIGIT)
     elif len(text) in (7, 8, 9):
-        # Bốn số cuối luôn thuộc phần số; không đoán ký tự series còn mơ hồ.
-        text = text[:2].translate(TO_DIGIT) + text[2:3].translate(TO_LETTER) + text[3:-4] + text[-4:].translate(TO_DIGIT)
+        # Chuỗi 9 ký tự có 5 chữ số cuối; chuỗi 8 ký tự có thể có 4 hoặc 5 số.
+        digits = 5 if len(text) == 9 else 4
+        text = text[:2].translate(TO_DIGIT) + text[2:3].translate(TO_LETTER) + text[3:-digits] + text[-digits:].translate(TO_DIGIT)
     return RecognitionResult(raw_text, text, PLATE_PATTERN.fullmatch(text) is not None)
 
 

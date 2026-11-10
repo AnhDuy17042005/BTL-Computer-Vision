@@ -114,8 +114,7 @@ def command_evaluate(args):
         Đánh giá toàn bộ ảnh của tập chọn, không bỏ các ảnh xử lý thất bại.
     """
     pipeline = make_pipeline(args)
-    boxes = json.loads(args.boxes.read_text(encoding="utf-8")) if args.boxes else None
-    report = evaluate(split_samples(args.data, args.split), pipeline, boxes)
+    report = evaluate(split_samples(args.data, args.split), pipeline)
     report["split"] = args.split
     report["split_sha256"] = file_hash(args.data/"splits.json")
     if pipeline.recognizer is not None:
@@ -166,7 +165,6 @@ def build_parser():
         elif name == "evaluate":
             add_pipeline_options(command)
             command.add_argument("--split", choices=["train", "validation", "test"], default="test")
-            command.add_argument("--boxes", type=Path)
             command.add_argument("--output", type=Path, default=Path("outputs/evaluation.json"))
     run = commands.add_parser("run")
     run.add_argument("image", type=Path)

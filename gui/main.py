@@ -12,7 +12,8 @@ from PySide6.QtWidgets import (QApplication, QFileDialog, QGridLayout, QHBoxLayo
                                QLabel, QMainWindow, QMessageBox, QPlainTextEdit,
                                QPushButton, QScrollArea, QTabWidget, QVBoxLayout, QWidget)
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
+FROZEN = getattr(sys, "frozen", False)
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -130,6 +131,10 @@ class MainWindow(QMainWindow):
         self.training_log.setPlainText("Bấm Train SVM để học từ bộ ký tự đã duyệt trong data/.\n"
                                        "Model được lưu tại models/ocr_svm.xml và tự nạp khi train xong.")
         self.tabs.addTab(self.training_log, "Train SVM")
+        if FROZEN:
+            self.buttons["Train SVM"].setEnabled(False)
+            self.training_log.setPlainText("Bản đóng gói dùng model đã train. "
+                                           "Để train lại, chạy `pixi run train` trong thư mục project.")
         layout.addWidget(self.tabs)
         self.setCentralWidget(container)
         self.buttons["Nhận dạng"].setEnabled(False)
@@ -163,7 +168,8 @@ class MainWindow(QMainWindow):
         """
             Mở hộp thoại chọn ảnh và báo lỗi nếu file không đọc được.
         """
-        path, _ = QFileDialog.getOpenFileName(self, "Chọn ảnh", str(ROOT/"data/images"),
+        folder = Path.home() if FROZEN else ROOT/"data/images"
+        path, _ = QFileDialog.getOpenFileName(self, "Chọn ảnh", str(folder),
                                               "Ảnh (*.jpg *.jpeg *.png *.bmp)")
         if path:
             try:
@@ -263,7 +269,7 @@ class MainWindow(QMainWindow):
         """
         if self.result is None:
             return
-        directory = QFileDialog.getExistingDirectory(self, "Chọn thư mục lưu", str(ROOT))
+        directory = QFileDialog.getExistingDirectory(self, "Chọn thư mục lưu", str(Path.home()))
         if directory:
             try:
                 destination = Path(directory)/f"{self.image_path.stem}_result"
@@ -276,7 +282,7 @@ class MainWindow(QMainWindow):
         """
             Chạy lệnh train trong tiến trình riêng để giao diện vẫn phản hồi.
         """
-        if self.train_process is not None:
+        if FROZEN or self.train_process is not None:
             return
         self.train_process = QProcess(self)
         self.train_process.setWorkingDirectory(str(ROOT))
@@ -334,6 +340,11 @@ def main():
     """
         Tạo ứng dụng Qt và hiển thị cửa sổ nhận dạng biển số.
     """
+    if len(sys.argv) == 3 and sys.argv[1] == "--check-image":
+        model = SVMRecognizer.load(ROOT/"models/ocr_svm.xml")
+        result = PlatePipeline(model).process(read_image(sys.argv[2]))
+        print(result.recognition.text if result.recognition else result.status)
+        return 0 if result.status == "ok" else 1
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()

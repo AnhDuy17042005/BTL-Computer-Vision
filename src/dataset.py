@@ -282,7 +282,7 @@ def prepare_characters(root):
         if detection.plate is None:
             skipped.append({"sample_id": sample.sample_id, "reason": "no_plate"})
             continue
-        segmentation = segment_chars(detection.plate)
+        segmentation = detection.segmentation or segment_chars(detection.plate)
         if len(segmentation.characters) != len(sample.text):
             skipped.append({"sample_id": sample.sample_id, "reason": "character_count_mismatch"})
             continue
@@ -368,23 +368,11 @@ def edit_distance(expected, predicted):
     return previous[-1]
 
 
-def bbox_iou(first, second):
-    """
-        Diện tích giao / diện tích hợp của hai bbox (x,y,w,h).
-    """
-    x, y, w, h = first
-    a, b, c, d = second
-    if min(w, h, c, d) <= 0:
-        return 0.0
-    intersection = max(0, min(x+w, a+c)-max(x, a))*max(0, min(y+h, b+d)-max(y, b))
-    return intersection/(w*h+c*d-intersection)
-
-
-def evaluate(samples, pipeline, boxes=None):
+def evaluate(samples, pipeline):
     """
         Đánh giá trên TẤT CẢ ảnh trong tập: lỗi detector/tách chữ cũng được tính.
 
-        Không có bbox thật thì không tính detection_accuracy. CER có thể lớn hơn 1.
+        Trả độ đúng cả biển, lỗi ký tự và thống kê trạng thái; CER có thể lớn hơn 1.
     """
     if not samples:
         raise ValueError("Tập đánh giá rỗng")
@@ -393,18 +381,13 @@ def evaluate(samples, pipeline, boxes=None):
     for sample in samples:
         result = pipeline.process(cv2.imread(str(sample.image_path)))
         predicted = result.recognition.text if result.recognition else ""
-        iou = None
-        if boxes is not None and sample.sample_id in boxes:
-            iou = bbox_iou(result.detection.bbox, boxes[sample.sample_id]) if result.detection.bbox else 0.0
         rows.append({"sample_id": sample.sample_id, "expected": sample.text, "predicted": predicted,
                      "status": result.status, "exact": predicted == sample.text,
-                     "edit_distance": edit_distance(sample.text, predicted), "iou": iou,
+                     "edit_distance": edit_distance(sample.text, predicted),
                      "elapsed_ms": result.elapsed_ms})
-    annotated = [row for row in rows if row["iou"] is not None]
     has_ocr = pipeline.recognizer is not None
     return {"count": len(rows), "plate_accuracy": sum(r["exact"] for r in rows)/len(rows) if has_ocr else None,
             "character_error_rate": sum(r["edit_distance"] for r in rows)/sum(len(s.text) for s in samples) if has_ocr else None,
-            "detection_accuracy": sum(r["iou"] >= 0.5 for r in annotated)/len(annotated) if annotated else None,
             "status_counts": dict(Counter(r["status"] for r in rows)),
             "mean_elapsed_ms": sum(r["elapsed_ms"] for r in rows)/len(rows), "rows": rows}
 

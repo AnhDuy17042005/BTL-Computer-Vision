@@ -109,15 +109,19 @@ def split_lines(binary, line_count=None):
 
 def extract_characters(binary, start, end, line_index):
     """
-        Lấy các thành phần có chiều cao/tỷ lệ giống chữ; loại chấm và gạch ngang.
+        Lấy vùng giống chữ; loại chấm, gạch và dải viền hẹp sát mép biển.
     """
     line = binary[start:end]
     _, components, stats, _ = cv2.connectedComponentsWithStats(line)
     characters = []
+    plate_width = binary.shape[1]
     
     for component, (x, y, w, h, area) in enumerate(stats[1:], 1):
         x, y, w, h, area = map(int, (x, y, w, h, area))
-        if h < 0.4*(end-start) or w > 0.3*binary.shape[1] or w < max(3, binary.shape[1]*0.025) or area < 12 or h/w < 0.9:
+        if h < 0.4*(end-start) or w > 0.3*plate_width or w < max(3, plate_width*0.025) or area < 12 or h/w < 0.9:
+            continue
+        # Viền sót thường rất mảnh và nằm sát mép; chữ thật ở mép vẫn được giữ nếu đủ rộng.
+        if (x < plate_width*0.05 or x+w > plate_width*0.95) and w < plate_width*0.04:
             continue
         crop = np.where(components[y:y+h, x:x+w] == component, 255, 0).astype(np.uint8)
         characters.append(Character(normalize_character(crop), (x, y+start, w, h), line_index))

@@ -1,10 +1,12 @@
-"""Phát hiện biển bằng ngưỡng sáng/cạnh, contour và các quy tắc hình học đơn giản."""
+"""
+    Phát hiện biển bằng ngưỡng sáng/cạnh, contour và quy tắc hình học đơn giản.
+"""
 
 from dataclasses import dataclass, field
 import cv2
 import numpy as np
 
-from .segment import segment_chars
+from .segment import SegmentationResult, segment_chars
 
 
 @dataclass(frozen=True)
@@ -21,11 +23,12 @@ class DetectorConfig:
 @dataclass
 class DetectionResult:
     """
-        Biển BGR đã nắn và bbox (x,y,w,h) trên ảnh GỐC; None nếu không tìm thấy.
+        Biển và bbox trên ảnh gốc; giữ kết quả tách ký tự để dùng lại.
     """
     plate: np.ndarray | None = None
     bbox: tuple | None = None
     debug: dict = field(default_factory=dict)
+    segmentation: SegmentationResult | None = None
 
 
 def validate_image(image):
@@ -211,13 +214,13 @@ def choose_candidate(candidates, image, offset, scales):
             continue
         
         layout_bonus = 2.0 if len(counts) == 2 and counts[0] == 4 else 0.0
-        choices.append((score+layout_bonus, corners, plate))
+        choices.append((score+layout_bonus, corners, plate, segmented))
     return max(choices, key=lambda item: item[0]) if choices else None
 
 
 def detect_plate(image, config=None):
     """
-        Tiền xử lý -> tìm ứng viên tốt nhất -> bbox ảnh gốc -> cắt biển.
+        Tiền xử lý, chọn ứng viên rồi trả ảnh biển, bbox và ký tự đã tách.
     """
     config = config or DetectorConfig()
     color, gray, offset, scales = preprocess(image, config)
@@ -230,11 +233,11 @@ def detect_plate(image, config=None):
     if chosen is None:
         return DetectionResult(debug=debug)
     
-    _, corners, plate = chosen
+    _, corners, plate, segmented = chosen
     x0, y0 = np.floor(corners.min(axis=0)).astype(int)
     x1, y1 = np.ceil(corners.max(axis=0)).astype(int)+1
     bbox = (int(x0), int(y0), int(x1-x0), int(y1-y0))
     annotated = image.copy()
     cv2.polylines(annotated, [np.rint(corners).astype(np.int32)], True, (0, 255, 0), 2)
     debug.update({"detection": annotated, "plate": plate})
-    return DetectionResult(plate, bbox, debug)
+    return DetectionResult(plate, bbox, debug, segmented)

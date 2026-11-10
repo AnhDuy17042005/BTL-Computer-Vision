@@ -12,19 +12,25 @@ from typing import Literal
 import numpy as np
 import cv2
 
-from .detect import DetectionResult, DetectorConfig, detect_plate
+from .detect import DetectionResult, DetectorConfig, detect_plate, validate_image
 from .ocr import RecognitionResult, SVMRecognizer
 from .segment import SegmentConfig, SegmentationResult, segment_chars
 
 
 @dataclass(frozen=True)
 class PipelineConfig:
+    """
+        Cấu hình detector và segmentation cho một lần chạy pipeline.
+    """
     detector: DetectorConfig = field(default_factory=DetectorConfig)
     segmentation: SegmentConfig = field(default_factory=SegmentConfig)
 
 
 @dataclass
 class PipelineResult:
+    """
+        Gói kết quả, trạng thái và ảnh trung gian của một ảnh đầu vào.
+    """
     detection: DetectionResult
     segmentation: SegmentationResult
     recognition: RecognitionResult | None
@@ -34,6 +40,10 @@ class PipelineResult:
 
 
 class PlatePipeline:
+    """
+        Điều phối tìm biển, tách ký tự và nhận dạng bằng model đã nạp.
+    """
+
     def __init__(self, recognizer: SVMRecognizer | None = None, config: PipelineConfig | None = None):
         """
             Nhận model dùng chung cho nhiều ảnh và cấu hình từng công đoạn.
@@ -45,10 +55,7 @@ class PlatePipeline:
         """
             Chạy một ảnh; trả trạng thái rõ ràng và ảnh trung gian của từng bước.
         """
-        if (not isinstance(image, np.ndarray) or image.dtype != np.uint8
-                or image.ndim != 3 or image.shape[2] != 3 or image.size == 0):
-            raise ValueError("Cần ảnh BGR uint8 không rỗng, shape (H,W,3)")
-        
+        validate_image(image)
         start = perf_counter()
         detection = detect_plate(image, self.config.detector)
         segmentation = SegmentationResult()
@@ -56,7 +63,10 @@ class PlatePipeline:
         status = "no_plate"
         
         if detection.plate is not None:
-            segmentation = segment_chars(detection.plate, self.config.segmentation)
+            if detection.segmentation is not None and self.config.segmentation == SegmentConfig():
+                segmentation = detection.segmentation
+            else:
+                segmentation = segment_chars(detection.plate, self.config.segmentation)
             status = "no_characters"
             if segmentation.characters:
                 status = "no_model"
