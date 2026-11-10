@@ -4,10 +4,3 @@
 
 # vscode
 .vscode/*
-
-# Python caches
-__pycache__/
-*.py[cod]
-.pytest_cache/
-dist/
-build/
