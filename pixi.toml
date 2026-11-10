@@ -6,6 +6,12 @@ platforms = ["linux-64"]
 version = "0.1.0"
 
 [tasks]
+audit = "python -m src audit data"
+gui = "python -m gui.main"
+train = "python -m src train data"
+evaluate = "python -m src evaluate data --split test --output outputs/test.json"
+test = "python -m unittest discover -s tests -v"
+build = "python -m PyInstaller --noconfirm --distpath dist --workpath .pixi/pyinstaller PlateOCR.spec"
 
 [dependencies]
 python = "3.12.*"
@@ -15,3 +21,4 @@ opencv = ">=5.0.0,<6"
 pillow = ">=12.3.0,<13"
 pyside6 = ">=6.11.2,<7"
 ipykernel = ">=7.3.0,<8"
+pyinstaller = ">=6.22.3,<7"
